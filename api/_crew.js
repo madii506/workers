@@ -72,9 +72,14 @@ async function readBoard() {
 
 // ---------- words ----------
 const ctx = k => `The memecoin ${k.name} ($${k.symbol}). What it is, in its creator's words: """${L.clean(k.voice, 400)}""".${k.look ? ' Its picture shows: ' + L.clean(k.look, 300) + '.' : ''}`;
+// when the house's AI credits run dry, every bot says so plainly instead of pretending
+const BREAK = 'The crew is on a break: the house’s AI credits are being topped up. Try again soon.';
+const broke = e => /credit balance|top-?up|insufficient|payment required|quota/i.test(String(e || ''));
 async function talk(system, user, max = 300) {
   if (!(await L.spendTalk())) return { ok: false, error: 'Today’s budget for words is spent. It resets at 00:00 UTC.', budget: true };
-  return L.ai([{ role: 'system', content: system }, { role: 'user', content: user }], max, 20000);
+  const r = await L.ai([{ role: 'system', content: system }, { role: 'user', content: user }], max, 20000);
+  if (!r.ok && broke(r.error)) return { ok: false, error: BREAK, budget: true };
+  return r;
 }
 async function describe(jpeg) {
   const r = await L.ai([{ role: 'user', content: [{ type: 'text', text: 'Describe the main character, mascot or logo in this image in under 30 words: what it is, colours, vibe.' },
@@ -87,10 +92,11 @@ const fallbackPlan = k => [
   { bot: 'DEV', job: `Build $${k.symbol}’s page` },
 ];
 // CTO: reads the board and plans the next three jobs, one bot each
-async function cto(k, jobs = []) {
+async function cto(k, jobs = [], strict = false) {
   const open = jobs.slice(0, 8).map(j => `- for ${j.bot}: ${L.clean(j.text, 140)} (${j.votes} votes)`).join('\n');
   const r = await talk(`You are CTO, the lead bot of a small AI crew that runs the memecoin company ${k.name} ($${k.symbol}). ${ctx(k)} Your crew: YAP writes X posts, MEME makes memes, CLIP films TikToks, DEV builds the coin's site, MOD answers holders. ${RULES}`,
     `Plan the crew's next three jobs. ${open ? 'Holders posted these jobs:\n' + open + '\nPrefer the most-voted. ' : ''}Reply with JSON only: {"plan":[{"bot":"YAP|MEME|CLIP|DEV","job":"one short line under 90 characters"}]} with exactly three items, each for a different bot.`, 260);
+  if (strict && !r.ok) return { ok: false, error: r.budget ? r.error : 'CTO didn’t plan this time. Try again.' };
   const j = r.ok ? L.parseJson(r.text) : null;
   let plan = (j && Array.isArray(j.plan) ? j.plan : []).map(p => ({ bot: String(p.bot || '').toUpperCase().trim(), job: L.scrub(String(p.job || '').replace(/\*/g, ''), 100) }))
     .filter(p => TAKES.includes(p.bot) && p.job.length > 4 && !L.BANNED.test(p.job));
@@ -134,9 +140,10 @@ async function mod(k, question) {
 async function sceneOf(k, brief) {
   const r = await talk(`You turn a request into one short visual scene for an AI picture of the mascot of the memecoin ${k.name}. ${k.look ? 'The mascot: ' + L.clean(k.look, 200) + '. ' : ''}Refuse anything with real or famous people, known cartoon, game or film characters, brand logos, minors, gore or anything sexual.`,
     `Request: """${L.clean(brief, 200)}""". Reply with JSON only: {"ok":true,"scene":"what the mascot is doing and where, under 30 words"} or {"ok":false}`, 120);
-  const j = r.ok ? L.parseJson(r.text) : null;
-  if (!j || !j.ok || !j.scene) return null;
-  const sc = L.clean(j.scene, 220); return L.BANNED.test(sc) ? null : sc;
+  if (!r.ok) return { error: r.budget ? r.error : 'The crew didn’t read that job. Try again.' };
+  const j = L.parseJson(r.text);
+  if (!j || !j.ok || !j.scene) return { refused: true };
+  const sc = L.clean(j.scene, 220); return L.BANNED.test(sc) ? { refused: true } : { scene: sc };
 }
 
 // ---------- pictures ----------
@@ -163,12 +170,12 @@ const KEEP_CLIP = ' Keep the character or logo from the image exactly as it is: 
 async function meme(k, refB64, brief) {
   if (!refB64) return { ok: false, error: 'MEME needs the coin’s picture.' };
   let scene = null;
-  if (brief) { scene = await sceneOf(k, brief); if (!scene) return { ok: false, refused: true, error: 'MEME passed on that job: it breaks the house rules.' }; }
+  if (brief) { const so = await sceneOf(k, brief); if (so.error) return { ok: false, error: so.error }; if (!so.scene) return { ok: false, refused: true, error: 'MEME passed on that job: it breaks the house rules.' }; scene = so.scene; }
   if (!(await L.spendShot())) return { ok: false, error: 'Today’s picture budget is spent. It resets at 00:00 UTC.' };
   const prompt = scene ? `Starring the exact character or logo from this image: ${scene}.` : `The exact character or logo from this image ${pick(MEME_SCENES)}.`;
   let ph = await L.photo(prompt + KEEP_MEME, refB64, 55000, '1024x1024');
   if (!ph.ok && /size|dimension|width|height/i.test(ph.error || '')) ph = await L.photo(prompt + KEEP_MEME, refB64, 50000);
-  if (!ph.ok) return { ok: false, error: 'The meme didn’t come out. Try again in a minute.', why: ph.error };
+  if (!ph.ok) return { ok: false, error: broke(ph.error) ? BREAK : 'The meme didn’t come out. Try again in a minute.', why: ph.error };
   const img = await require('sharp')(ph.buf, { limitInputPixels: 60e6 }).resize(1024, 1024, { fit: 'cover', position: 'attention' }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
   return { ok: true, still: img, model: ph.model, out: scene ? { scene } : {} };
 }
@@ -181,12 +188,12 @@ async function caption(k, trend) {
 async function clipStill(k, refB64, brief) {
   if (!refB64) return { ok: false, error: 'CLIP needs the coin’s picture.' };
   let trend = pick(TRENDS);
-  if (brief) { const sc = await sceneOf(k, brief); if (!sc) return { ok: false, refused: true, error: 'CLIP passed on that job: it breaks the house rules.' }; trend = { name: 'a holder’s idea', scene: sc, motion: 'It moves naturally through the scene, handheld phone video, lively and funny.' }; }
+  if (brief) { const so = await sceneOf(k, brief); if (so.error) return { ok: false, error: so.error }; if (!so.scene) return { ok: false, refused: true, error: 'CLIP passed on that job: it breaks the house rules.' }; trend = { name: 'a holder’s idea', scene: so.scene, motion: 'It moves naturally through the scene, handheld phone video, lively and funny.' }; }
   if (!(await L.spendShot())) return { ok: false, error: 'Today’s picture budget is spent. It resets at 00:00 UTC.' };
   const prompt = `The exact character or logo from this image ${trend.scene}.` + KEEP_CLIP;
   let ph = await L.photo(prompt, refB64, 55000, '768x1344');
   if (!ph.ok && /size|dimension|width|height/i.test(ph.error || '')) ph = await L.photo(prompt, refB64, 50000);
-  if (!ph.ok) return { ok: false, error: 'CLIP’s shot didn’t come out. Try again in a minute.', why: ph.error };
+  if (!ph.ok) return { ok: false, error: broke(ph.error) ? BREAK : 'CLIP’s shot didn’t come out. Try again in a minute.', why: ph.error };
   const img = await require('sharp')(ph.buf, { limitInputPixels: 60e6 }).resize(720, 1280, { fit: 'cover', position: 'attention' }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
   const cap = await caption(k, trend);
   return { ok: true, still: img, model: ph.model, trend, out: { trend: trend.name, caption: cap } };
@@ -228,7 +235,7 @@ async function work({ k, bot, brief = null, kind, mint = null, refB64 = null, si
   let r;
   if (bot === 'YAP') r = await yap(k, brief);
   else if (bot === 'DEV') r = await dev(k, brief);
-  else if (bot === 'CTO') r = await cto(k, []);
+  else if (bot === 'CTO') r = await cto(k, [], kind === 'test');
   else if (bot === 'MOD') r = await mod(k, brief || `What is $${k.symbol}?`);
   else if (bot === 'MEME') r = await meme(k, refB64, brief);
   else if (bot === 'CLIP') r = await clipStill(k, refB64, brief);
