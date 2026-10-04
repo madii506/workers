@@ -1,0 +1,10 @@
+name: cycle
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS --max-time 70 "https://workers-delta-gilt.vercel.app/api/cycle" || true
