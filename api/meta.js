@@ -27,13 +27,13 @@ async function get(req, res) {
   await L.ready();
   if (qy.img) {
     const mint = String(qy.img).replace(/\.\w+$/, '');
-    const r = L.isAddr(mint) ? await L.q('SELECT img, status FROM w0_coins WHERE mint=$1 AND img IS NOT NULL', [mint]).catch(() => []) : [];
+    const r = L.isAddr(mint) ? await L.q('SELECT img, status FROM wkr_coins WHERE mint=$1 AND img IS NOT NULL', [mint]).catch(() => []) : [];
     if (!r.length) { res.statusCode = 404; res.setHeader('Cache-Control', 'public, max-age=30'); return res.end(); }
     return img(res, r[0].img, 'image/jpeg', r[0].status === 'live');
   }
   const id = String(qy.id || '').replace(/\.json$/, '');
   if (!/^[1-9A-HJ-NP-Za-km-z]{8,44}$/.test(id)) return L.send(res, 404, { error: 'not found' });
-  const r = await L.q('SELECT mint, name, symbol, xhandle, shares FROM w0_coins WHERE id=$1', [id]).catch(() => []);
+  const r = await L.q('SELECT mint, name, symbol, xhandle, shares FROM wkr_coins WHERE id=$1', [id]).catch(() => []);
   if (!r.length) return L.send(res, 404, { error: 'not found' }, 'public, max-age=30');
   L.send(res, 200, metaJson(r[0], L.origin(req)), 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800');
 }
@@ -68,13 +68,13 @@ async function post(req, res) {
   try {
     await L.ready();
     const id = L.metaId(mint);
-    const prev = await L.q('SELECT mint, status FROM w0_coins WHERE id=$1', [id]);
+    const prev = await L.q('SELECT mint, status FROM wkr_coins WHERE id=$1', [id]);
     if (prev.length && (prev[0].mint !== mint || prev[0].status !== 'pending')) return L.send(res, 200, { ok: false, error: 'Try again: the page will make a new token address.' });
     const look = await M.describe(face);
     const shares = L.sharesOf(payer);
-    await L.q(`INSERT INTO w0_coins (mint, id, name, symbol, voice, look, xhandle, payer, shares, img) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    await L.q(`INSERT INTO wkr_coins (mint, id, name, symbol, voice, look, xhandle, payer, shares, img) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       ON CONFLICT (mint) DO UPDATE SET name=EXCLUDED.name, symbol=EXCLUDED.symbol, voice=EXCLUDED.voice, look=EXCLUDED.look, xhandle=EXCLUDED.xhandle,
-        payer=EXCLUDED.payer, shares=EXCLUDED.shares, img=EXCLUDED.img, created_at=now() WHERE w0_coins.status='pending'`,
+        payer=EXCLUDED.payer, shares=EXCLUDED.shares, img=EXCLUDED.img, created_at=now() WHERE wkr_coins.status='pending'`,
       [mint, id, name, symbol, voice, look, x || null, payer, JSON.stringify(shares), face]);
     const site = L.origin(req);
     L.send(res, 200, { ok: true, uri: site + '/m/' + id, image: site + '/i/' + mint, studio: L.STUDIO, name, symbol, shares });

@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
   if (!L.isAddr(mint) || !L.isAddr(payer)) return L.send(res, 200, { ok: false, error: 'That request doesn’t look right.' });
   try {
     await L.ready();
-    const k = (await L.q('SELECT mint, id, name, symbol, payer, status, shares FROM w0_coins WHERE mint=$1', [mint]))[0];
+    const k = (await L.q('SELECT mint, id, name, symbol, payer, status, shares FROM wkr_coins WHERE mint=$1', [mint]))[0];
     if (!k) return L.send(res, 200, { ok: false, error: 'Record the coin first.' });
     if (k.payer !== payer) return L.send(res, 200, { ok: false, error: 'Only the wallet that started this can sign it.' });
     if (k.status === 'live') return L.send(res, 200, { ok: false, error: 'This token is already launched.' });

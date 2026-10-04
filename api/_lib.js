@@ -141,34 +141,34 @@ const dbReady = () => !!(process.env.NI_PGLITE || process.env.DATABASE_URL || pr
 function ready() {
   if (!made) made = (async () => {
     for (const st of [
-      `CREATE TABLE IF NOT EXISTS w0_coins (mint text PRIMARY KEY, id text UNIQUE NOT NULL, slot int, name text NOT NULL, symbol text NOT NULL, voice text NOT NULL,
+      `CREATE TABLE IF NOT EXISTS wkr_coins (mint text PRIMARY KEY, id text UNIQUE NOT NULL, slot int, name text NOT NULL, symbol text NOT NULL, voice text NOT NULL,
         look text, xhandle text, payer text NOT NULL, shares jsonb NOT NULL, status text NOT NULL DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now(), born_at timestamptz,
         state text NOT NULL DEFAULT 'awake', mcap_sol float8, complete boolean NOT NULL DEFAULT false, last_trade_at timestamptz, vault_lamports bigint NOT NULL DEFAULT 0,
         img bytea, site jsonb, shifts int NOT NULL DEFAULT 0, shift_at timestamptz)`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS w0_slot ON w0_coins(slot)`,
-      `CREATE TABLE IF NOT EXISTS w0_work (id bigserial PRIMARY KEY, mint text, kind text NOT NULL, bot text NOT NULL, brief text, job bigint, out jsonb, still bytea, mp4 bytea,
+      `CREATE UNIQUE INDEX IF NOT EXISTS wkr_slot ON wkr_coins(slot)`,
+      `CREATE TABLE IF NOT EXISTS wkr_work (id bigserial PRIMARY KEY, mint text, kind text NOT NULL, bot text NOT NULL, brief text, job bigint, out jsonb, still bytea, mp4 bytea,
         model text, op jsonb, status text NOT NULL DEFAULT 'done', err text, polled_at timestamptz, at timestamptz NOT NULL DEFAULT now(), done_at timestamptz)`,
-      `CREATE INDEX IF NOT EXISTS w0_work_mint ON w0_work(mint, id DESC)`,
-      `CREATE INDEX IF NOT EXISTS w0_work_status ON w0_work(status, id)`,
-      `CREATE TABLE IF NOT EXISTS w0_jobs (id bigserial PRIMARY KEY, mint text NOT NULL, bot text NOT NULL, text text NOT NULL, votes int NOT NULL DEFAULT 1, ip text,
+      `CREATE INDEX IF NOT EXISTS wkr_work_mint ON wkr_work(mint, id DESC)`,
+      `CREATE INDEX IF NOT EXISTS wkr_work_status ON wkr_work(status, id)`,
+      `CREATE TABLE IF NOT EXISTS wkr_jobs (id bigserial PRIMARY KEY, mint text NOT NULL, bot text NOT NULL, text text NOT NULL, votes int NOT NULL DEFAULT 1, ip text,
         status text NOT NULL DEFAULT 'open', work bigint, at timestamptz NOT NULL DEFAULT now(), done_at timestamptz)`,
-      `CREATE INDEX IF NOT EXISTS w0_jobs_mint ON w0_jobs(mint, status, votes DESC, id)`,
-      `CREATE TABLE IF NOT EXISTS w0_votes (job bigint NOT NULL, ip text NOT NULL, PRIMARY KEY (job, ip))`,
-      `CREATE TABLE IF NOT EXISTS w0_log (id bigserial PRIMARY KEY, kind text NOT NULL, mint text, text text NOT NULL, at timestamptz NOT NULL DEFAULT now())`,
-      `CREATE TABLE IF NOT EXISTS w0_state (id int PRIMARY KEY, cycle int NOT NULL DEFAULT 0, next_at timestamptz NOT NULL DEFAULT now(), lock_at timestamptz,
+      `CREATE INDEX IF NOT EXISTS wkr_jobs_mint ON wkr_jobs(mint, status, votes DESC, id)`,
+      `CREATE TABLE IF NOT EXISTS wkr_votes (job bigint NOT NULL, ip text NOT NULL, PRIMARY KEY (job, ip))`,
+      `CREATE TABLE IF NOT EXISTS wkr_log (id bigserial PRIMARY KEY, kind text NOT NULL, mint text, text text NOT NULL, at timestamptz NOT NULL DEFAULT now())`,
+      `CREATE TABLE IF NOT EXISTS wkr_state (id int PRIMARY KEY, cycle int NOT NULL DEFAULT 0, next_at timestamptz NOT NULL DEFAULT now(), lock_at timestamptz,
         shots_day date, shots int NOT NULL DEFAULT 0, vids_day date, vids int NOT NULL DEFAULT 0, talk_day date, talk int NOT NULL DEFAULT 0)`,
     ]) await q(st);
-    await q(`INSERT INTO w0_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+    await q(`INSERT INTO wkr_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
   })().catch(e => { made = null; throw e; });
   return made;
 }
 const DAILY_TALK = Math.max(1, Number(process.env.DAILY_TALK) || 4000);       // the house's text budget per UTC day
 async function spendTalk(n = 1) {
-  const r = await q(`UPDATE w0_state SET talk = CASE WHEN talk_day = (now() AT TIME ZONE 'utc')::date THEN talk + $2 ELSE $2 END, talk_day = (now() AT TIME ZONE 'utc')::date
+  const r = await q(`UPDATE wkr_state SET talk = CASE WHEN talk_day = (now() AT TIME ZONE 'utc')::date THEN talk + $2 ELSE $2 END, talk_day = (now() AT TIME ZONE 'utc')::date
     WHERE id=1 AND (talk_day IS DISTINCT FROM (now() AT TIME ZONE 'utc')::date OR talk < $1) RETURNING talk`, [DAILY_TALK, n]);
   return r.length > 0;
 }
-const log = (kind, mint, text) => q('INSERT INTO w0_log (kind, mint, text) VALUES ($1,$2,$3)', [kind, mint || null, String(text).slice(0, 300)]).catch(() => {});
+const log = (kind, mint, text) => q('INSERT INTO wkr_log (kind, mint, text) VALUES ($1,$2,$3)', [kind, mint || null, String(text).slice(0, 300)]).catch(() => {});
 
 
 
@@ -226,7 +226,7 @@ async function photo(prompt, ref, ms = 50000, size = null) {
 }
 // a day's budget, counted in the database so every function instance shares it
 async function spendShot() {
-  const r = await q(`UPDATE w0_state SET shots = CASE WHEN shots_day = (now() AT TIME ZONE 'utc')::date THEN shots + 1 ELSE 1 END, shots_day = (now() AT TIME ZONE 'utc')::date
+  const r = await q(`UPDATE wkr_state SET shots = CASE WHEN shots_day = (now() AT TIME ZONE 'utc')::date THEN shots + 1 ELSE 1 END, shots_day = (now() AT TIME ZONE 'utc')::date
     WHERE id=1 AND (shots_day IS DISTINCT FROM (now() AT TIME ZONE 'utc')::date OR shots < $1) RETURNING shots`, [DAILY_SHOTS]);
   return r.length > 0;
 }
@@ -300,7 +300,7 @@ async function hfStatus(id) {
   } catch (e) { return { ok: false, error: String(e && e.message).slice(0, 200) }; }
 }
 async function spendVid() {
-  const r = await q(`UPDATE w0_state SET vids = CASE WHEN vids_day = (now() AT TIME ZONE 'utc')::date THEN vids + 1 ELSE 1 END, vids_day = (now() AT TIME ZONE 'utc')::date
+  const r = await q(`UPDATE wkr_state SET vids = CASE WHEN vids_day = (now() AT TIME ZONE 'utc')::date THEN vids + 1 ELSE 1 END, vids_day = (now() AT TIME ZONE 'utc')::date
     WHERE id=1 AND (vids_day IS DISTINCT FROM (now() AT TIME ZONE 'utc')::date OR vids < $1) RETURNING vids`, [DAILY_VIDS]);
   return r.length > 0;
 }

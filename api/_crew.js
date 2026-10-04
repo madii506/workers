@@ -25,7 +25,7 @@ async function routingOf(mint) {
 }
 const sameShares = (got, want) => got.length === want.length && want.every((w, i) => got[i].address === w.address && got[i].bps === w.bps);
 async function settle(mint) {
-  const k = (await L.q('SELECT mint, symbol, status, slot, shares FROM w0_coins WHERE mint=$1', [mint]))[0];
+  const k = (await L.q('SELECT mint, symbol, status, slot, shares FROM wkr_coins WHERE mint=$1', [mint]))[0];
   if (!k) return { ok: false, error: 'No coin was recorded for that token.' };
   if (k.status === 'live') return { ok: true, live: true, slot: k.slot };
   if (k.status === 'void') return { ok: true, live: false, void: true };
@@ -35,10 +35,10 @@ async function settle(mint) {
   if (!(r.routed && r.revoked && sameShares(r.shareholders, shares))) return { ok: true, live: false, waiting: 'split', mint };
   for (let i = 0; i < 4; i++) {
     try {
-      const u = await L.q(`UPDATE w0_coins SET status='live', slot=(SELECT coalesce(max(slot),-1)+1 FROM w0_coins WHERE status='live'), born_at=now(), state=$4,
+      const u = await L.q(`UPDATE wkr_coins SET status='live', slot=(SELECT coalesce(max(slot),-1)+1 FROM wkr_coins WHERE status='live'), born_at=now(), state=$4,
         last_trade_at=now(), mcap_sol=$2, complete=$3 WHERE mint=$1 AND status<>'live' RETURNING slot`, [mint, r.mcapSol, !!r.complete, r.complete ? 'ascended' : 'awake']);
       if (u.length) await L.log('born', mint, `$${k.symbol} opened for business. The crew clocked in.`);
-      const s = (await L.q('SELECT slot FROM w0_coins WHERE mint=$1', [mint]))[0];
+      const s = (await L.q('SELECT slot FROM wkr_coins WHERE mint=$1', [mint]))[0];
       return { ok: true, live: true, slot: s && s.slot };
     } catch (e) { if (!/unique|duplicate/i.test(String(e && e.message))) throw e; }
   }
@@ -52,7 +52,7 @@ async function lastTrade(mint) {
 // awake while it trades; a day without a trade and it slows ('rot'); seven days and the crew clocks out ('dead')
 const stateFor = (k, now) => k.complete ? 'ascended' : !k.last_trade_at ? 'awake' : now - new Date(k.last_trade_at) >= 7 * DAY ? 'dead' : now - new Date(k.last_trade_at) >= DAY ? 'rot' : 'awake';
 async function readBoard() {
-  const ks = await L.q(`SELECT mint, symbol, state, mcap_sol, complete, last_trade_at FROM w0_coins WHERE status='live' ORDER BY slot`);
+  const ks = await L.q(`SELECT mint, symbol, state, mcap_sol, complete, last_trade_at FROM wkr_coins WHERE status='live' ORDER BY slot`);
   const vaults = ks.length ? await L.accounts(ks.map(k => L.vaultOf(k.mint))).catch(() => ks.map(() => null)) : [];
   const curves = ks.length ? await L.accounts(ks.map(k => L.bondingCurveOf(k.mint))).catch(() => ks.map(() => null)) : [];
   const now = Date.now(); let changes = 0;
@@ -65,7 +65,7 @@ async function readBoard() {
     const last = t && (!k.last_trade_at || t > new Date(k.last_trade_at)) ? t : k.last_trade_at;
     const st = stateFor({ ...k, complete, last_trade_at: last }, now);
     if (st !== k.state) { changes++; await L.log(st, k.mint, `$${k.symbol} ${st === 'rot' ? 'is quiet: the crew works slower' : st === 'dead' ? 'went quiet for a week: the crew clocked out' : st === 'ascended' ? 'graduated: its curve is complete' : 'is trading again: the crew is back on shift'}`); }
-    await L.q(`UPDATE w0_coins SET mcap_sol=$2, complete=$3, last_trade_at=$4, state=$5, vault_lamports=$6 WHERE mint=$1`, [k.mint, mcap, complete, last, st, vl]);
+    await L.q(`UPDATE wkr_coins SET mcap_sol=$2, complete=$3, last_trade_at=$4, state=$5, vault_lamports=$6 WHERE mint=$1`, [k.mint, mcap, complete, last, st, vl]);
   });
   return { coins: ks.length, changes };
 }
@@ -204,17 +204,17 @@ async function startVideo(trend, still, imageUrl) {
 async function poll(v) {
   if (v.status !== 'pending') return v;
   if (v.polled_at && Date.now() - new Date(v.polled_at) < 3000) return v;
-  await L.q(`UPDATE w0_work SET polled_at=now() WHERE id=$1`, [v.id]);
+  await L.q(`UPDATE wkr_work SET polled_at=now() WHERE id=$1`, [v.id]);
   const op = typeof v.op === 'string' ? JSON.parse(v.op) : v.op;
   const st = String(v.model || '').startsWith('higgsfield/') ? await L.hfStatus(op && op.hf) : await L.videoStatus(v.model, op);
   const old = Date.now() - new Date(v.at);
-  const still = async err => { await L.q(`UPDATE w0_work SET status='still', err=$2 WHERE id=$1`, [v.id, String(err || '').slice(0, 200)]); return { ...v, status: 'still' }; };
+  const still = async err => { await L.q(`UPDATE wkr_work SET status='still', err=$2 WHERE id=$1`, [v.id, String(err || '').slice(0, 200)]); return { ...v, status: 'still' }; };
   if (!st.ok) return old > 15 * 60000 ? still(st.error) : v;
   if (st.status === 'pending') return old > 20 * 60000 ? still('timed out') : v;
   if (st.status === 'error') return still(st.error);
   const buf = await L.videoBytes(st.video).catch(() => null);
   if (!buf || buf.length < 1000) return still('empty video');
-  await L.q(`UPDATE w0_work SET status='done', mp4=$2, done_at=now(), op=NULL WHERE id=$1 AND status='pending'`, [v.id, buf]);
+  await L.q(`UPDATE wkr_work SET status='done', mp4=$2, done_at=now(), op=NULL WHERE id=$1 AND status='pending'`, [v.id, buf]);
   return { ...v, status: 'done', has_mp4: true };
 }
 
@@ -234,15 +234,15 @@ async function work({ k, bot, brief = null, kind, mint = null, refB64 = null, si
   else if (bot === 'CLIP') r = await clipStill(k, refB64, brief);
   else return { ok: false, error: 'No such bot.' };
   if (!r.ok) return r;
-  const ins = await L.q(`INSERT INTO w0_work (mint, kind, bot, brief, job, out, still, model, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, at`,
+  const ins = await L.q(`INSERT INTO wkr_work (mint, kind, bot, brief, job, out, still, model, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, at`,
     [mint, kind, bot, brief ? L.clean(brief, 200) : null, job, JSON.stringify(r.out || {}), r.still || null, r.model || null, r.still ? 'still' : 'done']);
   const id = ins[0].id; let status = r.still ? 'still' : 'done', note = null;
   if (bot === 'CLIP') {
     const v = await startVideo(r.trend, r.still, site ? site + '/api/crew?s=' + id : null);
-    if (v.ok) { await L.q(`UPDATE w0_work SET status='pending', model=$2, op=$3 WHERE id=$1`, [id, v.model, JSON.stringify(v.operation)]); status = 'pending'; }
+    if (v.ok) { await L.q(`UPDATE wkr_work SET status='pending', model=$2, op=$3 WHERE id=$1`, [id, v.model, JSON.stringify(v.operation)]); status = 'pending'; }
     else note = v.error;
   }
-  if (bot === 'DEV' && mint) await L.q(`UPDATE w0_coins SET site=$2 WHERE mint=$1`, [mint, JSON.stringify(r.out)]);
+  if (bot === 'DEV' && mint) await L.q(`UPDATE wkr_coins SET site=$2 WHERE mint=$1`, [mint, JSON.stringify(r.out)]);
   return { ok: true, ...view({ id, bot, kind, mint, brief, out: r.out, status, at: ins[0].at, has_still: !!r.still }), filming: status === 'pending', note };
 }
 // which bot an "anyone" job goes to: CTO reads it
@@ -256,17 +256,17 @@ function route(text) {
 const refOf = k => (k.img ? Buffer.from(k.img).toString('base64') : null);
 // a shift: the top job holders posted, or the CTO's own plan when the board is empty
 async function shift(k, site) {
-  const jobs = await L.q(`SELECT id, bot, text, votes FROM w0_jobs WHERE mint=$1 AND status='open' ORDER BY votes DESC, id LIMIT 8`, [k.mint]);
+  const jobs = await L.q(`SELECT id, bot, text, votes FROM wkr_jobs WHERE mint=$1 AND status='open' ORDER BY votes DESC, id LIMIT 8`, [k.mint]);
   let p;
-  if (jobs.length) { const j = jobs[0]; p = { bot: j.bot === 'ANY' ? route(j.text) : j.bot, brief: j.text, job: j.id }; await L.q(`UPDATE w0_jobs SET status='taken' WHERE id=$1`, [j.id]); }
+  if (jobs.length) { const j = jobs[0]; p = { bot: j.bot === 'ANY' ? route(j.text) : j.bot, brief: j.text, job: j.id }; await L.q(`UPDATE wkr_jobs SET status='taken' WHERE id=$1`, [j.id]); }
   else {
-    const recent = (await L.q(`SELECT bot FROM w0_work WHERE mint=$1 AND kind IN ('shift','first') ORDER BY id DESC LIMIT 3`, [k.mint])).map(r => r.bot);
+    const recent = (await L.q(`SELECT bot FROM wkr_work WHERE mint=$1 AND kind IN ('shift','first') ORDER BY id DESC LIMIT 3`, [k.mint])).map(r => r.bot);
     const plan = (await cto(k, [])).out.plan; const q = plan.find(x => !recent.includes(x.bot)) || plan[0];
     p = { bot: q.bot, brief: q.job, job: null };
   }
   const r = await work({ k, bot: p.bot, brief: p.brief, kind: 'shift', mint: k.mint, refB64: refOf(k), site, job: p.job });
-  if (p.job) await L.q(`UPDATE w0_jobs SET status=$2, work=$3, done_at=now() WHERE id=$1`, [p.job, r.ok ? 'done' : r.refused ? 'refused' : 'open', r.ok ? r.id : null]);
-  await L.q(`UPDATE w0_coins SET shift_at=now(), shifts=shifts+$2 WHERE mint=$1`, [k.mint, r.ok ? 1 : 0]);
+  if (p.job) await L.q(`UPDATE wkr_jobs SET status=$2, work=$3, done_at=now() WHERE id=$1`, [p.job, r.ok ? 'done' : r.refused ? 'refused' : 'open', r.ok ? r.id : null]);
+  await L.q(`UPDATE wkr_coins SET shift_at=now(), shifts=shifts+$2 WHERE mint=$1`, [k.mint, r.ok ? 1 : 0]);
   if (r.ok) await L.log('shift', k.mint, `${p.bot} shipped ${WHAT[p.bot]} for $${k.symbol}${p.job ? ', a holder’s job' : ''}`);
   else if (r.refused) await L.log('refused', k.mint, `${p.bot} passed on a job for $${k.symbol}: it broke the house rules`);
   return r;
@@ -279,7 +279,7 @@ async function first(k, site) {
   ]);
   const m = await work({ k, bot: 'MEME', kind: 'first', mint: k.mint, refB64: refOf(k), site });
   const n = [d, y, m].filter(x => x.ok).length;
-  await L.q(`UPDATE w0_coins SET shift_at=now(), shifts=shifts+$2 WHERE mint=$1`, [k.mint, n]);
+  await L.q(`UPDATE wkr_coins SET shift_at=now(), shifts=shifts+$2 WHERE mint=$1`, [k.mint, n]);
   if (n) await L.log('shift', k.mint, `First shift for $${k.symbol}: ${[d.ok && 'DEV built the page', y.ok && 'YAP wrote the launch posts', m.ok && 'MEME made the first meme'].filter(Boolean).join(', ')}`);
   return { ok: n > 0, work: [d, y, m].filter(x => x.ok), error: n ? null : (d.error || y.error || m.error) };
 }

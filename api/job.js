@@ -15,8 +15,8 @@ module.exports = async (req, res) => {
       const mint = String(L.query(req).mint || '');
       if (!L.isAddr(mint)) return L.send(res, 200, { ok: false, error: 'That isn’t a token address.' });
       const [open, done] = await Promise.all([
-        L.q(`SELECT id, bot, text, votes, status, at FROM w0_jobs WHERE mint=$1 AND status IN ('open','taken') ORDER BY votes DESC, id LIMIT 30`, [mint]),
-        L.q(`SELECT id, bot, text, votes, status, work, done_at FROM w0_jobs WHERE mint=$1 AND status IN ('done','refused') ORDER BY done_at DESC NULLS LAST LIMIT 12`, [mint]),
+        L.q(`SELECT id, bot, text, votes, status, at FROM wkr_jobs WHERE mint=$1 AND status IN ('open','taken') ORDER BY votes DESC, id LIMIT 30`, [mint]),
+        L.q(`SELECT id, bot, text, votes, status, work, done_at FROM wkr_jobs WHERE mint=$1 AND status IN ('done','refused') ORDER BY done_at DESC NULLS LAST LIMIT 12`, [mint]),
       ]);
       return L.send(res, 200, { ok: true, open, done }, L.CACHE(4, 30));
     }
@@ -25,14 +25,14 @@ module.exports = async (req, res) => {
     if (b.vote != null) {
       const id = String(b.vote); if (!/^\d{1,12}$/.test(id)) return L.send(res, 200, { ok: false, error: 'No such job.' });
       if (L.limited('vote:' + who, 40, 600000)) return L.send(res, 200, { ok: false, error: 'Too many votes. Wait a few minutes.' });
-      const ins = await L.q(`INSERT INTO w0_votes (job, ip) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING job`, [id, who]);
+      const ins = await L.q(`INSERT INTO wkr_votes (job, ip) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING job`, [id, who]);
       if (!ins.length) return L.send(res, 200, { ok: false, error: 'You already voted for that one.' });
-      const r = await L.q(`UPDATE w0_jobs SET votes=votes+1 WHERE id=$1 AND status='open' RETURNING votes`, [id]);
+      const r = await L.q(`UPDATE wkr_jobs SET votes=votes+1 WHERE id=$1 AND status='open' RETURNING votes`, [id]);
       return L.send(res, 200, r.length ? { ok: true, votes: r[0].votes } : { ok: false, error: 'That job is already taken.' });
     }
     const mint = String(b.mint || '');
     if (!L.isAddr(mint)) return L.send(res, 200, { ok: false, error: 'That isn’t a token address.' });
-    const k = (await L.q(`SELECT mint, name, symbol, voice, look, status, state FROM w0_coins WHERE mint=$1`, [mint]))[0];
+    const k = (await L.q(`SELECT mint, name, symbol, voice, look, status, state FROM wkr_coins WHERE mint=$1`, [mint]))[0];
     if (!k || k.status !== 'live') return L.send(res, 200, { ok: false, error: 'That company isn’t open yet.' });
     if (b.ask != null) {
       const ask = L.clean(b.ask, 240);
@@ -46,10 +46,10 @@ module.exports = async (req, res) => {
     if (text.length < 8) return L.send(res, 200, { ok: false, error: 'Describe the job in a few words.' });
     if (L.BANNED.test(text) || /https?:\/\//i.test(text)) return L.send(res, 200, { ok: false, error: 'That job breaks the house rules.' });
     if (L.limited('job:' + who, 5, 3600000)) return L.send(res, 200, { ok: false, error: 'Five jobs an hour from here. Vote on the others meanwhile.' });
-    const open = await L.q(`SELECT count(*)::int AS n FROM w0_jobs WHERE mint=$1 AND status='open'`, [mint]);
+    const open = await L.q(`SELECT count(*)::int AS n FROM wkr_jobs WHERE mint=$1 AND status='open'`, [mint]);
     if (open[0].n >= 60) return L.send(res, 200, { ok: false, error: 'The board is full. Vote for a job that’s already up.' });
-    const r = await L.q(`INSERT INTO w0_jobs (mint, bot, text, ip) VALUES ($1,$2,$3,$4) RETURNING id, bot, text, votes, status, at`, [mint, bot, text, who]);
-    await L.q(`INSERT INTO w0_votes (job, ip) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [r[0].id, who]);
+    const r = await L.q(`INSERT INTO wkr_jobs (mint, bot, text, ip) VALUES ($1,$2,$3,$4) RETURNING id, bot, text, votes, status, at`, [mint, bot, text, who]);
+    await L.q(`INSERT INTO wkr_votes (job, ip) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [r[0].id, who]);
     L.send(res, 200, { ok: true, job: r[0] });
   } catch (e) { L.send(res, 200, { ok: false, error: 'The job board didn’t answer. Try again.', why: String(e && e.message).slice(0, 160) }); }
 };

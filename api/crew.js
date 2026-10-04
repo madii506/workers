@@ -15,7 +15,7 @@ async function picture(dataUrl) {
 }
 const IMM = 'public, max-age=86400, s-maxage=31536000, immutable';
 async function serveMp4(req, res, id) {
-  const r = await L.q(`SELECT mp4 FROM w0_work WHERE id=$1 AND status='done' AND mp4 IS NOT NULL`, [id]);
+  const r = await L.q(`SELECT mp4 FROM wkr_work WHERE id=$1 AND status='done' AND mp4 IS NOT NULL`, [id]);
   if (!r.length) { res.statusCode = 404; return res.end(); }
   const buf = Buffer.from(r[0].mp4), size = buf.length, range = String(req.headers.range || '');
   res.setHeader('Content-Type', 'video/mp4'); res.setHeader('Accept-Ranges', 'bytes'); res.setHeader('Cache-Control', IMM);
@@ -71,13 +71,13 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       if (qy.v && /^\d{1,12}$/.test(String(qy.v))) return serveMp4(req, res, String(qy.v));
       if (qy.s && /^\d{1,12}$/.test(String(qy.s))) {
-        const r = await L.q('SELECT still FROM w0_work WHERE id=$1 AND still IS NOT NULL', [String(qy.s)]);
+        const r = await L.q('SELECT still FROM wkr_work WHERE id=$1 AND still IS NOT NULL', [String(qy.s)]);
         if (!r.length) { res.statusCode = 404; return res.end(); }
         return jpeg(res, r[0].still, IMM);
       }
       const id = String(qy.w || '');
       if (!/^\d{1,12}$/.test(id)) return L.send(res, 200, { ok: false, error: 'No such work.' });
-      let v = (await L.q(`SELECT id, mint, kind, bot, brief, out, model, op, status, polled_at, at, (still IS NOT NULL) AS has_still, (mp4 IS NOT NULL) AS has_mp4 FROM w0_work WHERE id=$1`, [id]))[0];
+      let v = (await L.q(`SELECT id, mint, kind, bot, brief, out, model, op, status, polled_at, at, (still IS NOT NULL) AS has_still, (mp4 IS NOT NULL) AS has_mp4 FROM wkr_work WHERE id=$1`, [id]))[0];
       if (!v) return L.send(res, 200, { ok: false, error: 'No such work.' });
       v = await C.poll(v);
       return L.send(res, 200, { ok: true, ...C.view(v) });
@@ -90,7 +90,7 @@ module.exports = async (req, res) => {
       const d = draftOf(b.draft); if (d.error) return L.send(res, 200, { ok: false, error: d.error });
       const k = d.k;
       const pic = b.image ? await picture(b.image).catch(() => null) : null;
-      await L.q(`UPDATE w0_work SET still=NULL, mp4=NULL, out=NULL, status='gone' WHERE kind='test' AND at < now() - interval '2 days' AND status<>'gone'`).catch(() => {});
+      await L.q(`UPDATE wkr_work SET still=NULL, mp4=NULL, out=NULL, status='gone' WHERE kind='test' AND at < now() - interval '2 days' AND status<>'gone'`).catch(() => {});
       if (b.desk) {
         if (L.limited('desk:' + L.ip(req), 6, 3600000)) return L.send(res, 200, { ok: false, error: 'Six trial shifts an hour. Launch it and the crew keeps working on its own.' });
         k.look = pic ? await C.describe(pic) : null;
@@ -110,9 +110,9 @@ module.exports = async (req, res) => {
     const mint = String(b.mint || '');
     if (!L.isAddr(mint)) return L.send(res, 200, { ok: false, error: 'That isn’t a token address.' });
     if (L.limited('first:' + mint, 2, 600000)) return L.send(res, 200, { ok: false, error: 'The crew is already on it.' });
-    const k = (await L.q(`SELECT mint, name, symbol, voice, look, img, status FROM w0_coins WHERE mint=$1`, [mint]))[0];
+    const k = (await L.q(`SELECT mint, name, symbol, voice, look, img, status FROM wkr_coins WHERE mint=$1`, [mint]))[0];
     if (!k || k.status !== 'live') return L.send(res, 200, { ok: false, error: 'It isn’t launched yet.' });
-    const any = await L.q(`SELECT id FROM w0_work WHERE mint=$1 LIMIT 1`, [mint]);
+    const any = await L.q(`SELECT id FROM wkr_work WHERE mint=$1 LIMIT 1`, [mint]);
     if (any.length) return L.send(res, 200, { ok: true, already: true });
     L.send(res, 200, await C.first(k, site));
   } catch (e) { L.send(res, 200, { ok: false, error: 'The crew didn’t answer. Try again.', why: String(e && e.message).slice(0, 160) }); }

@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     if (!mint) {
       if (!L.dbReady()) return L.send(res, 200, { ok: false, error: 'WORKERS’ records are offline.' });
       await L.ready();
-      const top = await L.q(`SELECT mint FROM w0_coins WHERE status='live' ORDER BY vault_lamports DESC LIMIT 6`);
+      const top = await L.q(`SELECT mint FROM wkr_coins WHERE status='live' ORDER BY vault_lamports DESC LIMIT 6`);
       if (!top.length) return L.send(res, 200, { ok: false, error: 'No coin is launched yet.' });
       const vs = await L.accounts(top.map(t => L.vaultOf(t.mint)));
       let best = -1; vs.forEach((v, i) => { const w = v ? v.lamports - L.RENT0 : 0; if (w > best) { best = w; mint = top[i].mint; } });
