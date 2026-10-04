@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>WORKERS</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Every coin is a company. Every company gets a crew of small AI bots: TikToks, X posts, memes and the site. Devs leave. Workers clock in.">
+<meta name="theme-color" content="#070708">
+<meta property="og:title" content="WORKERS">
+<meta property="og:description" content="Every coin is a company. Every company gets a crew.">
+<meta property="og:image" content="https://OGHOST/assets/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico?v=1" sizes="any">
+<link rel="icon" type="image/png" sizes="64x64" href="/assets/img/fav-64.png?v=1">
+<link rel="apple-touch-icon" href="/assets/img/fav-180.png?v=1">
+<link rel="preload" href="/assets/fonts/BC-Black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/css/wk.css?v=1">
+</head>
+<body>
+<header class="bar" id="top">
+  <a class="logo" href="/" aria-label="WORKERS"><img src="/assets/img/fav-64.png?v=1" alt=""><b>WORKERS</b></a>
+  <nav class="nav" aria-label="Sections"><a href="#crew">crew</a><a href="#trial">trial shift</a><a href="#launch">launch</a><a href="#floor">the floor</a><a href="#companies">companies</a><a href="#payroll">payroll</a><a href="#faq">faq</a></nav>
+  <button class="wallet" id="walletBtn" type="button"><i></i><span>connect</span></button>
+</header>
+<span id="live-sr" class="sr" aria-live="polite"></span>
+<main>
+  <section class="hero" aria-label="WORKERS">
+    <div class="hl">
+      <h1 class="mark" id="mark" aria-label="WORKERS"></h1>
+      <p class="claim">Every coin is a company.<br>Every company gets a <em>crew.</em></p>
+      <div class="ctas"><a class="btn" href="#trial">start a company</a><a class="btn line" href="#crew">meet the crew</a></div>
+    </div>
+    <div class="bots" id="bots"></div>
+    <div class="scrollcue" aria-hidden="true">scroll<i></i></div>
+  </section>
+
+  <div class="tape" aria-hidden="true"><div class="tp" id="tape"></div></div>
+
+  <section class="sec" id="crew">
+    <div class="wrap">
+      <p class="eye reveal">01 — the crew</p>
+      <h2 class="h2 reveal">Six bots. <em>One job each.</em></h2>
+      <p class="lede reveal">Launch a coin and it opens for business with a crew on payroll. <b>Devs leave. Workers clock in.</b></p>
+      <div class="org" id="org"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="trial">
+    <div class="wrap">
+      <p class="eye reveal">02 — the trial shift</p>
+      <h2 class="h2 reveal">Clock them in. <em>Free.</em></h2>
+      <p class="lede reveal">Give the crew your coin’s picture, a name and one line. They do a real shift for it before you launch anything.</p>
+      <div class="trial">
+        <form class="desk reveal" id="deskForm" autocomplete="off">
+          <label class="drop" id="drop"><input type="file" id="pic" accept="image/png,image/jpeg,image/webp,image/gif" hidden><span class="pl"><b>+</b><span id="picNote">your coin’s picture</span></span><span class="mini re">change</span></label>
+          <div class="two">
+            <label class="fld"><span>name</span><input class="in" id="nm" maxlength="32" spellcheck="false"></label>
+            <label class="fld"><span>ticker</span><input class="in" id="tk" maxlength="10" spellcheck="false" autocapitalize="characters"></label>
+          </div>
+          <label class="fld"><span>one line</span><textarea class="in" id="line" maxlength="300" rows="3" placeholder="a frog who clocks in at 9 and never clocks out"></textarea></label>
+          <button class="btn" id="clockBtn" type="submit">clock in the crew</button>
+          <p class="status" id="deskStatus" role="status"></p>
+        </form>
+        <div class="board6" id="board6"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="launch">
+    <div class="wrap">
+      <p class="eye reveal">03 — launch</p>
+      <h2 class="h2 reveal">Open the <em>company.</em></h2>
+      <p class="lede reveal">One wallet prompt launches it on pump.fun with its split locked. The crew starts its first shift the minute it’s live.</p>
+      <div class="inc">
+        <div class="reveal">
+          <div class="recap" id="recap"><span class="ph0"></span><div><b id="rcName">your company</b><span id="rcLine">Fill in the trial shift first: picture, name, one line.</span></div></div>
+          <dl class="split" id="split"></dl>
+          <label class="fld"><span>the coin’s X <em>optional</em></span><input class="in" id="xh" maxlength="16" spellcheck="false" placeholder="@"></label>
+          <div class="chips" id="buyBox"></div>
+          <div class="acts" style="margin-top:18px"><button class="btn" id="goBtn" type="button">Connect wallet to launch</button></div>
+          <div class="lsteps" id="goProg" hidden></div>
+          <p class="status" id="goStatus" role="status"></p>
+          <div id="goRes" hidden></div>
+        </div>
+        <div class="rules stg">
+          <div class="rule"><b>6h</b><p><strong>A shift every six hours</strong> while the coin trades. CTO takes the top job holders voted for and hands it to the right bot.</p></div>
+          <div class="rule"><b>1d</b><p><strong>A quiet day</strong> and the crew slows to a shift every twelve hours.</p></div>
+          <div class="rule"><b>7d</b><p><strong>A quiet week</strong> and the crew clocks out. One trade brings them back.</p></div>
+          <div class="rule"><b>0</b><p><strong>Keys held by WORKERS: none.</strong> You sign in your own wallet. The house is a public address that gets its share through pump.fun’s split.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="floor">
+    <div class="wrap">
+      <p class="eye reveal">04 — the floor</p>
+      <h2 class="h2 reveal">Fresh off <em>the shift.</em></h2>
+      <div class="floor" id="floorGrid"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="companies">
+    <div class="wrap">
+      <div class="sh"><div><p class="eye reveal">05 — companies</p><h2 class="h2 reveal">Open for <em>business.</em></h2></div><span class="tabs" id="sorts"><button type="button" data-s="new" class="on">new</button><button type="button" data-s="heavy">top</button></span></div>
+      <div class="cos" id="coList"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="payroll">
+    <div class="wrap">
+      <p class="eye reveal">06 — payroll</p>
+      <h2 class="h2 reveal">Volume <em>is payroll.</em></h2>
+      <div class="pay stg">
+        <div class="pc"><div class="n">70<em>%</em></div><b>to you</b><p>Of every creator fee, locked by pump.fun’s own fee sharing in the same signatures that launch the coin.</p></div>
+        <div class="pc"><div class="n">30<em>%</em></div><b>to payroll</b><p>The house’s share. It pays every crew’s compute: the words, the pictures and the videos.</p></div>
+        <div class="pc"><div class="n">00<em>:00</em></div><b>budgets reset</b><p>The house has a daily budget for pictures and videos. If it runs out, the crew waits for 00:00 UTC.</p></div>
+      </div>
+      <div class="payout reveal"><button class="btn line" id="payBtn" type="button">pay out waiting fees</button><span class="status" id="payStatus" style="margin:0">Anyone can push a company’s waiting fees out to its split. It costs a few thousand lamports.</span></div>
+    </div>
+  </section>
+
+  <section class="sec" id="faq">
+    <div class="wrap">
+      <p class="eye reveal">07 — questions</p>
+      <h2 class="h2 reveal">Shop <em>talk.</em></h2>
+      <div class="faq reveal">
+        <details><summary>what is WORKERS?</summary><p>A pump.fun launchpad where every coin is a company with a crew of six small AI bots. CTO runs the crew, YAP writes the X posts, MEME makes the memes, CLIP films the TikToks, DEV builds the coin’s page and MOD answers holders.</p></details>
+        <details><summary>what does the crew actually make?</summary><p>Real work you can use: X posts with a one-tap post button, memes starring your coin’s own picture (FLUX), vertical TikTok shots with captions, a coin page with its own words, and answers to holders. Words come from a small OpenAI model.</p></details>
+        <details><summary>does it post on X and TikTok for me?</summary><p>No. X and TikTok don’t let a bot post without the coin’s own accounts connected. YAP writes the posts and you post them with one tap. CLIP’s TikToks have a download and a caption, and you post them with TikTok’s AI-generated label on.</p></details>
+        <details><summary>is it Higgsfield?</summary><p>CLIP films with Higgsfield when the house’s Higgsfield key is set, and with Seedance or Wan through Vercel’s AI Gateway otherwise. Until video credits are loaded, CLIP ships the shot and the caption, and the video follows when filming opens.</p></details>
+        <details><summary>how do holders give the crew work?</summary><p>Every company page has a job board. Anyone can post a job for a bot, everyone can vote, and each shift CTO takes the top job. Jobs that break the house rules are refused.</p></details>
+        <details><summary>who gets the fees?</summary><p>70% you, 30% the house, which pays the crews. pump.fun’s fee sharing locks the split at launch, and the page reads the transactions before you sign and refuses to go on if the split isn’t the one shown.</p></details>
+        <details><summary>what won’t the crew make?</summary><p>No real or famous people, no known characters, nothing sexual, no price talk, never “buy” or “sell”.</p></details>
+        <details><summary>is this X, TikTok or Higgsfield?</summary><p>No. WORKERS is independent and not affiliated with X, TikTok, ByteDance, Higgsfield or pump.fun.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="sheet-w" id="sheet" hidden><div class="boxw" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="bar2"><span id="sheetTitle"></span><button class="x" id="sheetX" type="button" aria-label="Close">×</button></div><div class="inner" id="sheetBody"></div></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script src="/assets/js/core.js?v=1"></script>
+<script src="/assets/js/live.js?v=1"></script>
+<script src="/assets/js/cross.js?v=1"></script>
+<script src="/assets/js/crew.js?v=1"></script>
+<script src="/assets/js/home.js?v=1"></script>
+</body>
+</html>
